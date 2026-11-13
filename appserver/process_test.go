@@ -131,3 +131,31 @@ while true; do sleep 1; done
 		t.Fatalf("initialized notification unexpectedly has id: %v", notifyMessage["id"])
 	}
 }
+
+func TestStartProcessAppliesTransportConfig(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("process test requires unix shell script")
+	}
+
+	dir := t.TempDir()
+	script := `#!/bin/sh
+while true; do sleep 1; done
+`
+	fakeBinary := writeAppServerScriptBinary(t, dir, script)
+
+	proc, err := appserver.StartProcess(context.Background(), &appserver.ProcessOptions{
+		BinaryPath: fakeBinary,
+		TransportConfig: &appserver.StdioTransportConfig{
+			SendTimeout: 25 * time.Millisecond,
+		},
+	})
+	if err != nil {
+		t.Fatalf("StartProcess: %v", err)
+	}
+	defer func() { _ = proc.Close() }()
+
+	_, err = proc.Initialize(context.Background())
+	if err == nil || !strings.Contains(err.Error(), context.DeadlineExceeded.Error()) {
+		t.Fatalf("Initialize() error = %v, want %v from TransportConfig.SendTimeout", err, context.DeadlineExceeded)
+	}
+}

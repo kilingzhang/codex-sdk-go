@@ -72,6 +72,10 @@ type ProcessOptions struct {
 	// Client options forwarded to NewClient.
 	ClientOptions []ClientOption
 
+	// TransportConfig configures the underlying StdioTransport limits.
+	// Nil uses the default conservative limits.
+	TransportConfig *StdioTransportConfig
+
 	// InitializeParams overrides the default initialize handshake.
 	// Nil uses the SDK default client info.
 	InitializeParams *InitializeParams
@@ -207,7 +211,12 @@ func StartProcess(ctx context.Context, opts *ProcessOptions) (*Process, error) {
 		return nil, stopCanceledCommand(cmd, &processTree, err)
 	}
 
-	transport := codextransport.NewStdioTransport(stdout, stdin)
+	var transport *codextransport.StdioTransport
+	if opts.TransportConfig != nil {
+		transport = codextransport.NewStdioTransportWithConfig(stdout, stdin, *opts.TransportConfig)
+	} else {
+		transport = codextransport.NewStdioTransport(stdout, stdin)
+	}
 	client := NewClient(transport, opts.ClientOptions...)
 
 	return &Process{

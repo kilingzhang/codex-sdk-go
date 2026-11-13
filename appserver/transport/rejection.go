@@ -31,7 +31,15 @@ func (t *StdioTransport) enqueueRejection(id RequestID, code int64, message stri
 
 type rejectionBudget struct {
 	mu    sync.Mutex
+	limit int
 	bytes int
+}
+
+func (b *rejectionBudget) effectiveLimit() int {
+	if b.limit == 0 {
+		return maxRetainedRejectionBytes
+	}
+	return b.limit
 }
 
 type rejectionReservation struct {
@@ -43,7 +51,7 @@ type rejectionReservation struct {
 func (b *rejectionBudget) reserve(size int) (*rejectionReservation, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if size > maxRetainedRejectionBytes-b.bytes {
+	if limit := b.effectiveLimit(); limit > 0 && size > limit-b.bytes {
 		return nil, errRejectionByteLimit
 	}
 	b.bytes += size

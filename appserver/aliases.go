@@ -6,16 +6,18 @@ import (
 	"time"
 
 	protocol "github.com/dominicnunez/codex-sdk-go/appserver/protocol"
+	codextransport "github.com/dominicnunez/codex-sdk-go/appserver/transport"
 )
 
 const sdkVersion = "0.3.0"
 
 const (
-	ErrCodeParseError     = protocol.ErrCodeParseError
-	ErrCodeInvalidRequest = protocol.ErrCodeInvalidRequest
-	ErrCodeMethodNotFound = protocol.ErrCodeMethodNotFound
-	ErrCodeInvalidParams  = protocol.ErrCodeInvalidParams
-	ErrCodeInternalError  = protocol.ErrCodeInternalError
+	ErrCodeParseError       = protocol.ErrCodeParseError
+	ErrCodeInvalidRequest   = protocol.ErrCodeInvalidRequest
+	ErrCodeMethodNotFound   = protocol.ErrCodeMethodNotFound
+	ErrCodeInvalidParams    = protocol.ErrCodeInvalidParams
+	ErrCodeInternalError    = protocol.ErrCodeInternalError
+	StdioTransportUnlimited = codextransport.Unlimited
 )
 
 var (
@@ -23,6 +25,7 @@ var (
 	ErrInvalidParams              = protocol.ErrInvalidParams
 	ErrThreadStartObservationLost = protocol.ErrThreadStartObservationLost
 	NewTransportError             = protocol.NewTransportError
+	DefaultStdioTransportConfig   = codextransport.DefaultStdioTransportConfig
 	ApprovalPolicyNever           = protocol.ApprovalPolicyNever
 	ApprovalPolicyOnFailure       = protocol.ApprovalPolicyOnFailure
 	ApprovalPolicyOnRequest       = protocol.ApprovalPolicyOnRequest
@@ -44,6 +47,7 @@ type (
 	RequestID                                  = protocol.RequestID
 	W3cTraceContext                            = protocol.W3cTraceContext
 	Response                                   = protocol.Response
+	StdioTransportConfig                       = codextransport.StdioTransportConfig
 	Transport                                  = protocol.Transport
 	TransportLifecycle                         = protocol.TransportLifecycle
 	TransportError                             = protocol.TransportError

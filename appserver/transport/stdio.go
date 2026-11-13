@@ -113,6 +113,7 @@ type StdioTransport struct {
 	ctx                 context.Context
 	cancelCtx           context.CancelFunc
 	sendTimeout         time.Duration
+	config              StdioTransportConfig
 }
 
 var errTransportClosed = errors.New("transport closed")
@@ -123,13 +124,21 @@ var errStreamingNotificationBacklogOverflow = errors.New("streaming notification
 var errTurnScopedNotificationQueueOverflow = errors.New("turn-scoped notification queue overflow")
 var errTurnScopedNotificationQueueLimit = errors.New("turn-scoped notification queue limit exceeded")
 
-// NewStdioTransport creates a new stdio transport using the provided reader and writer.
+// NewStdioTransport creates a new stdio transport using the provided reader and writer
+// and the default conservative limits from DefaultStdioTransportConfig.
 // reader is required to be an io.ReadCloser so Close can always unblock the read loop.
 // Typically, reader is os.Stdin and writer is os.Stdout.
 // The transport starts background goroutines for write and inbound dispatch.
 // The read loop starts eagerly before this constructor returns.
 // It panics if reader/writer are invalid.
 func NewStdioTransport(reader io.ReadCloser, writer io.Writer) *StdioTransport {
+	return NewStdioTransportWithConfig(reader, writer, StdioTransportConfig{})
+}
+
+// NewStdioTransportWithConfig creates a new stdio transport using the provided
+// reader, writer, and configuration. Zero values in cfg fall back to defaults.
+// It panics if reader/writer are invalid.
+func NewStdioTransportWithConfig(reader io.ReadCloser, writer io.Writer, cfg StdioTransportConfig) *StdioTransport {
 	if reader == nil {
 		panic(errNilTransportReader)
 	}
@@ -137,46 +146,97 @@ func NewStdioTransport(reader io.ReadCloser, writer io.Writer) *StdioTransport {
 		panic(errNilTransportWriter)
 	}
 
+	resolved := resolveStdioTransportConfig(cfg)
 	ctx, cancel := context.WithCancel(context.Background())
 	t := &StdioTransport{
 		reader:              reader,
 		readerCloser:        reader,
 		writer:              writer,
 		pendingReqs:         make(map[string]pendingReq),
-		requestQueue:        make(chan Request, inboundRequestQueueSize),
+		notificationBudget:  notificationBudget{limit: resolved.MaxRetainedNotificationBytes},
+		requestQueue:        make(chan Request, resolved.InboundRequestQueueSize),
 		turnNotifQueues:     make(map[string]*turnScopedNotificationQueue),
-		streamingNotifQueue: make(chan bufferedNotification, streamingNotifQueueSize),
-		protectedNotifQueue: make(chan bufferedNotification, protectedNotifQueueSize),
-		criticalNotifQueue:  make(chan bufferedNotification, criticalNotifQueueSize),
-		notifQueue:          make(chan bufferedNotification, inboundNotifQueueSize),
-		writeQueue:          make(chan writeEnvelope, outboundWriteQueueSize),
+		streamingNotifQueue: make(chan bufferedNotification, resolved.StreamingNotificationQueueSize),
+		protectedNotifQueue: make(chan bufferedNotification, resolved.ProtectedNotificationQueueSize),
+		criticalNotifQueue:  make(chan bufferedNotification, resolved.CriticalNotificationQueueSize),
+		notifQueue:          make(chan bufferedNotification, resolved.InboundNotificationQueueSize),
+		writeQueue:          make(chan writeEnvelope, resolved.OutboundWriteQueueSize),
+		rejectionBudget:     rejectionBudget{limit: resolved.MaxRetainedRejectionBytes},
 		readerStopped:       make(chan struct{}),
 		ctx:                 ctx,
 		cancelCtx:           cancel,
-		sendTimeout:         defaultSendTimeout,
+		sendTimeout:         resolved.SendTimeout,
+		config:              resolved,
 	}
 	t.initTurnScopedScheduler()
-	for range inboundRequestWorkers {
+	for range resolved.InboundRequestWorkers {
 		go t.requestWorker()
 	}
-	for range inboundNotificationWorkers {
+	for range resolved.InboundNotificationWorkers {
 		go t.notificationWorker()
 	}
-	for range streamingNotificationWorkers {
+	for range resolved.StreamingNotificationWorkers {
 		go t.streamingNotificationWorker()
 	}
-	for range protectedNotificationWorkers {
+	for range resolved.ProtectedNotificationWorkers {
 		go t.protectedNotificationWorker()
 	}
-	for range criticalNotificationWorkers {
+	for range resolved.CriticalNotificationWorkers {
 		go t.criticalNotificationWorker()
 	}
-	for range turnScopedNotificationWorkers {
+	for range resolved.TurnScopedNotificationWorkers {
 		go t.turnScopedNotificationWorker()
 	}
 	go t.writeLoop()
 	t.ensureReadLoopStarted()
 	return t
+}
+
+// Config returns the resolved configuration in effect for this transport.
+func (t *StdioTransport) Config() StdioTransportConfig {
+	return resolveStdioTransportConfig(t.config)
+}
+
+func (t *StdioTransport) inboundRequestQueueLimit() int {
+	return resolvePositiveInt(t.config.InboundRequestQueueSize, inboundRequestQueueSize)
+}
+
+func (t *StdioTransport) inboundNotifLimit() int {
+	return resolvePositiveInt(t.config.InboundNotificationQueueSize, inboundNotifQueueSize)
+}
+
+func (t *StdioTransport) maxTurnQueuesLimit() int {
+	return resolveCapInt(t.config.MaxTurnScopedNotificationQueues, maxTurnScopedNotificationQueues)
+}
+
+func (t *StdioTransport) maxTurnQueueSizeLimit() int {
+	if t.config.MaxTurnScopedNotificationQueueSize != 0 {
+		return resolveCapInt(t.config.MaxTurnScopedNotificationQueueSize, maxTurnScopedNotificationQueueSize)
+	}
+	return resolveTurnScopedQueueSize(
+		0,
+		resolvePositiveInt(t.config.StreamingNotificationQueueSize, streamingNotifQueueSize),
+		t.maxStreamingBacklogLimit(),
+	)
+}
+
+func (t *StdioTransport) maxOrderedBacklogLimit() int {
+	if t.config.MaxOrderedNotificationBacklog != 0 {
+		return resolveCapInt(t.config.MaxOrderedNotificationBacklog, maxOrderedNotificationBacklog)
+	}
+	return resolveOrderedBacklog(0, t.maxTurnQueuesLimit(), t.maxTurnQueueSizeLimit())
+}
+
+func (t *StdioTransport) maxStreamingBacklogLimit() int {
+	return resolveCapInt(t.config.MaxStreamingNotificationBacklog, maxStreamingNotificationBacklog)
+}
+
+func (t *StdioTransport) readBufferSizeLimit() int {
+	return resolvePositiveInt(t.config.ReadBufferSizeBytes, readBufferSizeBytes)
+}
+
+func (t *StdioTransport) maxInboundMessageSizeLimit() int {
+	return resolveCapInt(t.config.MaxInboundMessageSizeBytes, maxInboundMessageSizeBytes)
 }
 
 // Send transmits a JSON-RPC request and waits for the response.
@@ -388,7 +448,10 @@ func (t *StdioTransport) Err() error {
 
 func (t *StdioTransport) applyDefaultSendTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	timeout := t.sendTimeout
-	if timeout <= 0 {
+	if timeout < 0 {
+		return ctx, func() {}
+	}
+	if timeout == 0 {
 		timeout = defaultSendTimeout
 	}
 	return applyDefaultSendTimeout(ctx, timeout)
@@ -517,9 +580,10 @@ func (t *StdioTransport) requestWorker() {
 func (t *StdioTransport) readLoop() {
 	defer t.once.Do(func() { close(t.readerStopped) })
 
-	reader := bufio.NewReaderSize(t.reader, readBufferSizeBytes)
+	reader := bufio.NewReaderSize(t.reader, t.readBufferSizeLimit())
+	maxMsgSize := t.maxInboundMessageSizeLimit()
 	for {
-		line, oversize, err := readLimitedLine(reader, maxInboundMessageSizeBytes)
+		line, oversize, err := readLimitedLine(reader, maxMsgSize)
 		if oversize != nil {
 			if t.handleOversizedRead(*oversize, err) {
 				return
@@ -934,7 +998,7 @@ func (t *StdioTransport) resolveRequestHandler(req Request) (RequestHandler, fun
 	if t.reqHandler != nil {
 		return t.reqHandler, t.panicHandler, requestHandlerResolved
 	}
-	if len(t.pendingReqHandler) >= inboundRequestQueueSize {
+	if len(t.pendingReqHandler) >= t.inboundRequestQueueLimit() {
 		return nil, nil, requestHandlerQueueFull
 	}
 	t.pendingReqHandler = append(t.pendingReqHandler, req)

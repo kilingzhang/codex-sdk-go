@@ -210,7 +210,7 @@ func readLimitedLine(r *bufio.Reader, limit int) ([]byte, *oversizedFrameInfo, e
 	for {
 		frag, err := r.ReadSlice('\n')
 		line = appendLineFragment(line, frag, limit, errors.Is(err, bufio.ErrBufferFull))
-		if lineExceedsLimit(line, limit) {
+		if limit > 0 && lineExceedsLimit(line, limit) {
 			return handleOversizedLine(r, err, line)
 		}
 		switch {
@@ -239,7 +239,7 @@ func appendLineFragment(line, fragment []byte, limit int, more bool) []byte {
 		capacity := needed
 		if more {
 			capacity = 2 * cap(line)
-			if capacity > limit {
+			if limit > 0 && capacity > limit {
 				capacity = limit + 1
 			}
 		}

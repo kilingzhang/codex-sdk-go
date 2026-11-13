@@ -221,7 +221,7 @@ func (t *StdioTransport) enqueueTurnScopedNotification(notif bufferedNotificatio
 	}
 	queue := t.turnNotifQueues[threadKey]
 	if queue == nil {
-		if len(t.turnNotifQueues) >= maxTurnScopedNotificationQueues {
+		if limit := t.maxTurnQueuesLimit(); limit > 0 && len(t.turnNotifQueues) >= limit {
 			t.turnNotifQueuesMu.Unlock()
 			notif.release()
 			t.closeWithFailure(
@@ -234,7 +234,9 @@ func (t *StdioTransport) enqueueTurnScopedNotification(notif bufferedNotificatio
 		t.turnNotifQueues[threadKey] = queue
 	}
 	queue.mu.Lock()
-	if len(queue.queue) >= maxTurnScopedNotificationQueueSize || t.orderedNotifCount >= maxOrderedNotificationBacklog {
+	queueLimit := t.maxTurnQueueSizeLimit()
+	backlogLimit := t.maxOrderedBacklogLimit()
+	if (queueLimit > 0 && len(queue.queue) >= queueLimit) || (backlogLimit > 0 && t.orderedNotifCount >= backlogLimit) {
 		queue.mu.Unlock()
 		t.turnNotifQueuesMu.Unlock()
 		notif.release()
@@ -390,7 +392,7 @@ func (t *StdioTransport) enqueueStreamingNotification(notif bufferedNotification
 		default:
 		}
 	}
-	if len(t.streamingBacklog.queue) >= maxStreamingNotificationBacklog {
+	if limit := t.maxStreamingBacklogLimit(); limit > 0 && len(t.streamingBacklog.queue) >= limit {
 		t.mu.Unlock()
 		t.streamingBacklog.mu.Unlock()
 		notif.release()
@@ -644,7 +646,7 @@ func (t *StdioTransport) handleNotification(notif bufferedNotification) {
 	handler := t.notifHandler
 	panicFn := t.panicHandler
 	if handler == nil {
-		if len(t.pendingNotifHandle) >= inboundNotifQueueSize {
+		if len(t.pendingNotifHandle) >= t.inboundNotifLimit() {
 			evicted := t.pendingNotifHandle[0]
 			t.pendingNotifHandle[0] = bufferedNotification{}
 			t.pendingNotifHandle = append(t.pendingNotifHandle[1:], notif)

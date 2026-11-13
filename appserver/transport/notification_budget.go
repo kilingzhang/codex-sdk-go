@@ -14,12 +14,20 @@ var errNotificationByteLimit = errors.New("retained notification byte limit exce
 
 type notificationBudget struct {
 	mu       sync.Mutex
+	limit    int
 	bytes    int
 	active   int
 	ended    bool
 	done     chan struct{}
 	finished bool
 	stopped  atomic.Bool
+}
+
+func (b *notificationBudget) effectiveLimit() int {
+	if b.limit == 0 {
+		return maxRetainedNotificationBytes
+	}
+	return b.limit
 }
 
 type notificationReservation struct {
@@ -40,7 +48,7 @@ func (b *notificationBudget) reserve(size int) (*notificationReservation, error)
 	if b.stopped.Load() || b.ended {
 		return nil, errTransportClosed
 	}
-	if size > maxRetainedNotificationBytes-b.bytes {
+	if limit := b.effectiveLimit(); limit > 0 && size > limit-b.bytes {
 		return nil, errNotificationByteLimit
 	}
 	b.bytes += size
