@@ -335,7 +335,7 @@ func TestStdioMalformedOrderedIdentityUsesFallback(t *testing.T) {
 func TestOrderedAggregateBacklogIsBounded(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	tr := &StdioTransport{ctx: ctx, cancelCtx: cancel, readerStopped: make(chan struct{})}
+	tr := &StdioTransport{ctx: ctx, cancelCtx: cancel, readerStopped: make(chan struct{}), config: BoundedStdioTransportConfig()}
 	for i := range maxOrderedNotificationBacklog {
 		tr.enqueueTurnScopedNotification(bufferedNotification{Notification: Notification{Method: protocol.NotifyTurnCompleted}}, fmt.Sprintf("thread:%d", i/maxTurnScopedNotificationQueueSize))
 	}

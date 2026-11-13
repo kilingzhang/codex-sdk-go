@@ -26,6 +26,7 @@ var (
 	ErrThreadStartObservationLost = protocol.ErrThreadStartObservationLost
 	NewTransportError             = protocol.NewTransportError
 	DefaultStdioTransportConfig   = codextransport.DefaultStdioTransportConfig
+	BoundedStdioTransportConfig   = codextransport.BoundedStdioTransportConfig
 	ApprovalPolicyNever           = protocol.ApprovalPolicyNever
 	ApprovalPolicyOnFailure       = protocol.ApprovalPolicyOnFailure
 	ApprovalPolicyOnRequest       = protocol.ApprovalPolicyOnRequest

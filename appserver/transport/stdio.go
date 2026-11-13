@@ -125,7 +125,7 @@ var errTurnScopedNotificationQueueOverflow = errors.New("turn-scoped notificatio
 var errTurnScopedNotificationQueueLimit = errors.New("turn-scoped notification queue limit exceeded")
 
 // NewStdioTransport creates a new stdio transport using the provided reader and writer
-// and the default conservative limits from DefaultStdioTransportConfig.
+// and the unrestricted limits from DefaultStdioTransportConfig.
 // reader is required to be an io.ReadCloser so Close can always unblock the read loop.
 // Typically, reader is os.Stdin and writer is os.Stdout.
 // The transport starts background goroutines for write and inbound dispatch.
@@ -136,7 +136,8 @@ func NewStdioTransport(reader io.ReadCloser, writer io.Writer) *StdioTransport {
 }
 
 // NewStdioTransportWithConfig creates a new stdio transport using the provided
-// reader, writer, and configuration. Zero values in cfg fall back to defaults.
+// reader, writer, and configuration. Zero or negative limit fields default to
+// Unlimited (or positive built-in defaults for worker/channel sizes).
 // It panics if reader/writer are invalid.
 func NewStdioTransportWithConfig(reader io.ReadCloser, writer io.Writer, cfg StdioTransportConfig) *StdioTransport {
 	if reader == nil {
@@ -206,29 +207,19 @@ func (t *StdioTransport) inboundNotifLimit() int {
 }
 
 func (t *StdioTransport) maxTurnQueuesLimit() int {
-	return resolveCapInt(t.config.MaxTurnScopedNotificationQueues, maxTurnScopedNotificationQueues)
+	return resolveLimitInt(t.config.MaxTurnScopedNotificationQueues)
 }
 
 func (t *StdioTransport) maxTurnQueueSizeLimit() int {
-	if t.config.MaxTurnScopedNotificationQueueSize != 0 {
-		return resolveCapInt(t.config.MaxTurnScopedNotificationQueueSize, maxTurnScopedNotificationQueueSize)
-	}
-	return resolveTurnScopedQueueSize(
-		0,
-		resolvePositiveInt(t.config.StreamingNotificationQueueSize, streamingNotifQueueSize),
-		t.maxStreamingBacklogLimit(),
-	)
+	return resolveLimitInt(t.config.MaxTurnScopedNotificationQueueSize)
 }
 
 func (t *StdioTransport) maxOrderedBacklogLimit() int {
-	if t.config.MaxOrderedNotificationBacklog != 0 {
-		return resolveCapInt(t.config.MaxOrderedNotificationBacklog, maxOrderedNotificationBacklog)
-	}
-	return resolveOrderedBacklog(0, t.maxTurnQueuesLimit(), t.maxTurnQueueSizeLimit())
+	return resolveLimitInt(t.config.MaxOrderedNotificationBacklog)
 }
 
 func (t *StdioTransport) maxStreamingBacklogLimit() int {
-	return resolveCapInt(t.config.MaxStreamingNotificationBacklog, maxStreamingNotificationBacklog)
+	return resolveLimitInt(t.config.MaxStreamingNotificationBacklog)
 }
 
 func (t *StdioTransport) readBufferSizeLimit() int {
@@ -236,7 +227,7 @@ func (t *StdioTransport) readBufferSizeLimit() int {
 }
 
 func (t *StdioTransport) maxInboundMessageSizeLimit() int {
-	return resolveCapInt(t.config.MaxInboundMessageSizeBytes, maxInboundMessageSizeBytes)
+	return resolveLimitInt(t.config.MaxInboundMessageSizeBytes)
 }
 
 // Send transmits a JSON-RPC request and waits for the response.
@@ -448,11 +439,8 @@ func (t *StdioTransport) Err() error {
 
 func (t *StdioTransport) applyDefaultSendTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	timeout := t.sendTimeout
-	if timeout < 0 {
+	if timeout <= 0 {
 		return ctx, func() {}
-	}
-	if timeout == 0 {
-		timeout = defaultSendTimeout
 	}
 	return applyDefaultSendTimeout(ctx, timeout)
 }

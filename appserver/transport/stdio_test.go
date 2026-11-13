@@ -1164,7 +1164,7 @@ func TestStdioOversizeInboundLineStopsTransport(t *testing.T) {
 	defer func() { _ = serverReader.Close() }()
 	defer func() { _ = clientWriter.Close() }()
 
-	transport := codex.NewStdioTransport(clientReader, clientWriter)
+	transport := codex.NewStdioTransportWithConfig(clientReader, clientWriter, codex.BoundedStdioTransportConfig())
 	defer func() { _ = transport.Close() }()
 
 	received := make(chan string, 1)
@@ -1359,7 +1359,7 @@ func TestStdioOversizeResponseUnblocksPendingSend(t *testing.T) {
 			defer func() { _ = serverReader.Close() }()
 			defer func() { _ = clientWriter.Close() }()
 
-			transport := codex.NewStdioTransport(clientReader, clientWriter)
+			transport := codex.NewStdioTransportWithConfig(clientReader, clientWriter, codex.BoundedStdioTransportConfig())
 			defer func() { _ = transport.Close() }()
 
 			ctx, cancel := context.WithTimeout(context.Background(), stdioLongRequestTimeout)
@@ -1420,7 +1420,7 @@ func TestStdioOversizeResponseWithIDBeyondLimitClosesTransport(t *testing.T) {
 	defer func() { _ = serverReader.Close() }()
 	defer func() { _ = clientWriter.Close() }()
 
-	transport := codex.NewStdioTransport(clientReader, clientWriter)
+	transport := codex.NewStdioTransportWithConfig(clientReader, clientWriter, codex.BoundedStdioTransportConfig())
 	defer func() { _ = transport.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), stdioLongRequestTimeout)
@@ -1487,7 +1487,7 @@ func TestStdioPartialOversizeResponseClosesTransportImmediately(t *testing.T) {
 	defer func() { _ = serverReader.Close() }()
 	defer func() { _ = clientWriter.Close() }()
 
-	transport := codex.NewStdioTransport(clientReader, clientWriter)
+	transport := codex.NewStdioTransportWithConfig(clientReader, clientWriter, codex.BoundedStdioTransportConfig())
 	defer func() { _ = transport.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), stdioLongRequestTimeout)
@@ -1547,7 +1547,7 @@ func TestStdioExactInboundMessageLimitIsAccepted(t *testing.T) {
 	defer func() { _ = serverReader.Close() }()
 	defer func() { _ = clientWriter.Close() }()
 
-	transport := codex.NewStdioTransport(clientReader, clientWriter)
+	transport := codex.NewStdioTransportWithConfig(clientReader, clientWriter, codex.BoundedStdioTransportConfig())
 	defer func() { _ = transport.Close() }()
 
 	received := make(chan string, 2)
@@ -1604,7 +1604,7 @@ func TestStdioOversizeAmbiguousFrameStopsTransport(t *testing.T) {
 	defer func() { _ = serverReader.Close() }()
 	defer func() { _ = clientWriter.Close() }()
 
-	transport := codex.NewStdioTransport(clientReader, clientWriter)
+	transport := codex.NewStdioTransportWithConfig(clientReader, clientWriter, codex.BoundedStdioTransportConfig())
 	defer func() { _ = transport.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), stdioLongRequestTimeout)
@@ -1660,7 +1660,7 @@ func TestStdioOversizeNotificationWithLateMethodStopsTransport(t *testing.T) {
 	defer func() { _ = serverReader.Close() }()
 	defer func() { _ = clientWriter.Close() }()
 
-	transport := codex.NewStdioTransport(clientReader, clientWriter)
+	transport := codex.NewStdioTransportWithConfig(clientReader, clientWriter, codex.BoundedStdioTransportConfig())
 	defer func() { _ = transport.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), stdioLongRequestTimeout)
@@ -1713,7 +1713,7 @@ func TestStdioOversizeResponseAtEOFFailsPendingSend(t *testing.T) {
 	defer func() { _ = serverReader.Close() }()
 	defer func() { _ = clientWriter.Close() }()
 
-	transport := codex.NewStdioTransport(clientReader, clientWriter)
+	transport := codex.NewStdioTransportWithConfig(clientReader, clientWriter, codex.BoundedStdioTransportConfig())
 	defer func() { _ = transport.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), stdioLongRequestTimeout)

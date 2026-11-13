@@ -159,3 +159,51 @@ while true; do sleep 1; done
 		t.Fatalf("Initialize() error = %v, want %v from TransportConfig.SendTimeout", err, context.DeadlineExceeded)
 	}
 }
+
+func TestStartProcessDefaultsToUnlimitedTransport(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("process test requires unix shell script")
+	}
+
+	dir := t.TempDir()
+	script := `#!/bin/sh
+read initialize
+printf '{"jsonrpc":"2.0","method":"custom/large","params":"'
+dd if=/dev/zero bs=1048576 count=11 2>/dev/null | tr '\0' 'x'
+printf '"}\n'
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"codexHome":"/tmp/codex-home","platformFamily":"unix","platformOs":"linux","userAgent":"fake-codex/0.0.1"}}'
+while true; do sleep 1; done
+`
+	fakeBinary := writeAppServerScriptBinary(t, dir, script)
+
+	ctx, cancel := context.WithTimeout(context.Background(), appServerTestTimeout)
+	defer cancel()
+
+	// Nil TransportConfig defaults to Unlimited and accepts >10 MiB frames.
+	proc, err := appserver.StartProcess(ctx, &appserver.ProcessOptions{
+		BinaryPath: fakeBinary,
+	})
+	if err != nil {
+		t.Fatalf("StartProcess (default): %v", err)
+	}
+	defer func() { _ = proc.Close() }()
+
+	if _, err := proc.Initialize(ctx); err != nil {
+		t.Fatalf("Initialize() with default Unlimited transport failed: %v", err)
+	}
+
+	// Explicit BoundedStdioTransportConfig rejects the same 11 MiB frame.
+	bounded := appserver.BoundedStdioTransportConfig()
+	procBounded, err := appserver.StartProcess(ctx, &appserver.ProcessOptions{
+		BinaryPath:      fakeBinary,
+		TransportConfig: &bounded,
+	})
+	if err != nil {
+		t.Fatalf("StartProcess (bounded): %v", err)
+	}
+	defer func() { _ = procBounded.Close() }()
+
+	if _, err := procBounded.Initialize(ctx); err == nil {
+		t.Fatal("Initialize() with BoundedStdioTransportConfig succeeded on 11 MiB frame, want failure")
+	}
+}

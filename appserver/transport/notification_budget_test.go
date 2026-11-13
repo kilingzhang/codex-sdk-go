@@ -23,7 +23,7 @@ func TestStdioNotificationBytesBoundedBeforeHandler(t *testing.T) {
 func checkStdioNotificationByteLimit(t *testing.T, method, owner string) {
 	t.Helper()
 	r, w := io.Pipe()
-	tr := NewStdioTransport(r, io.Discard)
+	tr := NewStdioTransportWithConfig(r, io.Discard, BoundedStdioTransportConfig())
 	t.Cleanup(func() { _ = tr.Close(); _ = w.Close() })
 	// Each frame is below the 10 MiB frame limit, and nine events are far
 	// below all count limits. Their retained payloads exceed 64 MiB.
@@ -62,7 +62,7 @@ func checkStdioNotificationByteLimit(t *testing.T, method, owner string) {
 
 func TestStdioNotificationBudgetIncludesCallbacks(t *testing.T) {
 	r, w := io.Pipe()
-	tr := NewStdioTransport(r, io.Discard)
+	tr := NewStdioTransportWithConfig(r, io.Discard, BoundedStdioTransportConfig())
 	t.Cleanup(func() { _ = tr.Close(); _ = w.Close() })
 	entered, release := make(chan struct{}, 16), make(chan struct{})
 	var releaseOnce sync.Once

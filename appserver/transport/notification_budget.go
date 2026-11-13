@@ -24,8 +24,8 @@ type notificationBudget struct {
 }
 
 func (b *notificationBudget) effectiveLimit() int {
-	if b.limit == 0 {
-		return maxRetainedNotificationBytes
+	if b.limit <= 0 {
+		return Unlimited
 	}
 	return b.limit
 }

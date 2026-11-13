@@ -641,6 +641,7 @@ func TestEnqueueTurnScopedNotificationOverflowClosesTransport(t *testing.T) {
 	defer cancel()
 
 	transport := &StdioTransport{
+		config:          BoundedStdioTransportConfig(),
 		pendingReqs:     make(map[string]pendingReq),
 		turnNotifQueues: make(map[string]*turnScopedNotificationQueue),
 		readerStopped:   make(chan struct{}),
@@ -858,6 +859,7 @@ func TestEnqueueTurnScopedNotificationQueueLimitClosesTransport(t *testing.T) {
 	defer cancel()
 
 	transport := &StdioTransport{
+		config:          BoundedStdioTransportConfig(),
 		pendingReqs:     make(map[string]pendingReq),
 		turnNotifQueues: make(map[string]*turnScopedNotificationQueue),
 		readerStopped:   make(chan struct{}),

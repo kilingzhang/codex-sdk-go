@@ -73,7 +73,7 @@ type ProcessOptions struct {
 	ClientOptions []ClientOption
 
 	// TransportConfig configures the underlying StdioTransport limits.
-	// Nil uses the default conservative limits.
+	// Nil uses DefaultStdioTransportConfig (unrestricted limits by default).
 	TransportConfig *StdioTransportConfig
 
 	// InitializeParams overrides the default initialize handshake.

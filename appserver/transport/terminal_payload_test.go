@@ -106,7 +106,7 @@ func TestTerminalReleasesPreHandlerRequests(t *testing.T) {
 	for _, cause := range []string{"close", "eof", "read failure", "oversize", "write failure"} {
 		t.Run(cause, func(t *testing.T) {
 			reader, peer := io.Pipe()
-			tr := NewStdioTransport(reader, io.Discard)
+			tr := NewStdioTransportWithConfig(reader, io.Discard, BoundedStdioTransportConfig())
 			t.Cleanup(func() { _ = tr.Close(); _ = peer.Close() })
 			for id := range 4 {
 				tr.enqueueRequest(Request{ID: RequestID{Value: id}, Method: "approval", Params: json.RawMessage(`{"data":"retained"}`)})
@@ -154,7 +154,7 @@ func TestTerminalReleasesQueuedRequests(t *testing.T) {
 	for _, cause := range []string{"close", "eof", "read failure", "oversize", "write failure"} {
 		t.Run(cause, func(t *testing.T) {
 			reader, peer := io.Pipe()
-			tr := NewStdioTransport(reader, io.Discard)
+			tr := NewStdioTransportWithConfig(reader, io.Discard, BoundedStdioTransportConfig())
 			release := make(chan struct{})
 			entered := make(chan struct{}, inboundRequestWorkers)
 			t.Cleanup(func() { close(release); _ = tr.Close(); _ = peer.Close() })
@@ -195,7 +195,7 @@ func TestTerminalReleasesQueuedWrites(t *testing.T) {
 			if cause == "write failure" {
 				writer.err = errors.New("actual writer failure")
 			}
-			tr := NewStdioTransport(reader, writer)
+			tr := NewStdioTransportWithConfig(reader, writer, BoundedStdioTransportConfig())
 			t.Cleanup(func() { writer.unblock(); _ = tr.Close(); _ = peer.Close() })
 			result := make(chan error, 9)
 			go func() { result <- tr.Notify(context.Background(), Notification{Method: "held"}) }()

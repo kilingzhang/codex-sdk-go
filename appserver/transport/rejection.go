@@ -36,8 +36,8 @@ type rejectionBudget struct {
 }
 
 func (b *rejectionBudget) effectiveLimit() int {
-	if b.limit == 0 {
-		return maxRetainedRejectionBytes
+	if b.limit <= 0 {
+		return Unlimited
 	}
 	return b.limit
 }

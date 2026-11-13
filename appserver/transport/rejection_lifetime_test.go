@@ -64,7 +64,7 @@ func TestRejectionTerminalDiscardsQueuedPayloads(t *testing.T) {
 func TestClaimedRejectionRetainsReservationUntilWriteReturns(t *testing.T) {
 	reader, peer := io.Pipe()
 	writer := newBoundaryWriter(nil)
-	tr := NewStdioTransport(reader, writer)
+	tr := NewStdioTransportWithConfig(reader, writer, BoundedStdioTransportConfig())
 	defer func() { writer.unblock(); _ = tr.Close(); _ = peer.Close() }()
 	if _, err := io.WriteString(peer, invalidRejectionFrame); err != nil {
 		t.Fatal(err)
@@ -94,7 +94,7 @@ func TestClaimedRejectionRetainsReservationUntilWriteReturns(t *testing.T) {
 func TestRejectionByteExhaustionTerminatesAdmission(t *testing.T) {
 	reader, peer := io.Pipe()
 	var output safeBuffer
-	tr := NewStdioTransport(reader, &output)
+	tr := NewStdioTransportWithConfig(reader, &output, BoundedStdioTransportConfig())
 	defer func() { _ = tr.Close(); _ = peer.Close() }()
 	// Charge the byte owner without allocating a giant fixture. The public
 	// reader must reject a real reply while that owner has no space left.
