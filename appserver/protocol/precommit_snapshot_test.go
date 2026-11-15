@@ -40,6 +40,8 @@ func newCommitFixture(t *testing.T, files map[string]string, realLint bool) *com
 			f.env = append(f.env, entry)
 		}
 	}
+	// Fixture commits must not execute the developer's machine-wide Git hooks.
+	f.env = append(f.env, "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_NOSYSTEM=1")
 	f.dir = filepath.Join(f.parent, "repo")
 	f.calls = filepath.Join(f.parent, "lint-calls.txt")
 	f.write(t, "go.mod", "module github.com/dominicnunez/codex-sdk-go\n\ngo 1.27.3\n")
@@ -92,7 +94,7 @@ set -euo pipefail
 if [ "$1" = version ]; then
   if [ "${LINT_FIXTURE_PHASE:-}" = version ]; then
     (read -r reply < "$LINT_FIXTURE_WAIT") &
-    printf '%s\n' "$BASHPID" > "$LINT_FIXTURE_READY"
+    printf '%s\n' "$$" > "$LINT_FIXTURE_READY"
     wait
   fi
   if [ "${LINT_FIXTURE_PHASE:-}" = install ]; then echo 'golangci-lint has version 2.13.0'; exit 0; fi
@@ -109,7 +111,7 @@ else
 fi
 if [ "$LINT_FIXTURE_EXIT" != 0 ]; then exit "$LINT_FIXTURE_EXIT"; fi
 report_body='{"Issues":[]}'
-if [[ -v LINT_FIXTURE_REPORT ]]; then report_body="$LINT_FIXTURE_REPORT"; fi
+if [[ ${LINT_FIXTURE_REPORT+x} ]]; then report_body="$LINT_FIXTURE_REPORT"; fi
 for arg in "$@"; do
   case "$arg" in
     --output.json.path=*) printf '%s' "$report_body" > "${arg#*=}" ;;

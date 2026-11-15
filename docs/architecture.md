@@ -117,6 +117,20 @@ Wait and force-kill. Verify concurrent Wait/Close, descendant liveness,
 deadlines and waiting CPU cost. Removing already observed terminal signals from
 repeated selects avoids spinning while other cleanup remains live.
 
+On Unix, managed Close snapshots descendant PID, parent PID, state and start time
+using `/bin/ps` before closing stdin. After normal parent-group shutdown, a second
+snapshot identifies possible survivors and writes a warning with sorted PIDs to
+`ProcessOptions.Stderr`. Inspection failures also produce warnings. These
+best-effort diagnostics do not change the result of Close; a nil Stderr discards
+them. No signal is sent based on the scanned descendant PIDs. The existing
+app-server process-group shutdown and Windows job-object lifecycle are unchanged.
+
+This diagnostic requires `/bin/ps` with `pid`, `ppid`, `stat` and `lstart` fields.
+Changed start times and zombies are excluded, but snapshots cannot prove ownership
+or eliminate PID reuse races. They can miss descendants reparented before shutdown
+or created after the first snapshot. A warning reports liveness at inspection time,
+not a permanent leak. A successful Close does not prove all detached children exited.
+
 Windows job-object records use separate 386 and 64-bit basic-limit declarations
 to match the native ABI. The 386 record includes four trailing padding bytes;
 the shared extended record then places I/O counters and memory limits at their

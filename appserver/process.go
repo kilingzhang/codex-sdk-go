@@ -66,7 +66,8 @@ type ProcessOptions struct {
 	// Working directory for the child process. Empty inherits the parent.
 	Dir string
 
-	// Stderr writer for the child process. Nil discards child stderr output.
+	// Stderr receives child output and best-effort shutdown inspection warnings.
+	// Nil discards both. Warnings do not cause Close to fail.
 	Stderr io.Writer
 
 	// Client options forwarded to NewClient.
@@ -413,15 +414,29 @@ func (p *Process) notifyInitialized(ctx context.Context) error {
 }
 
 // Close stops the child process, waits for its stdout reader to drain, and
-// then closes the transport. Safe to call multiple times.
+// then closes the transport. Safe to call multiple times. On Unix, possible
+// surviving descendants are reported to Stderr without signaling scanned PIDs.
 func (p *Process) Close() error {
 	var closeErr error
 	p.closeOnce.Do(func() {
+		var inspectionErr error
+		if p.cmd != nil {
+			inspectionErr = p.processTree.PrepareShutdown(p.cmd.Process)
+		}
 		closeErr = errors.Join(closeErr, p.closeStdin())
 		closeErr = errors.Join(closeErr, p.closeChildProcess())
 		closeErr = errors.Join(closeErr, p.closeTransport())
+		p.reportShutdownWarning(inspectionErr)
+		p.reportShutdownWarning(p.processTree.CheckDescendants())
 	})
 	return closeErr
+}
+
+// reportShutdownWarning keeps diagnostics separate from lifecycle errors.
+func (p *Process) reportShutdownWarning(err error) {
+	if err != nil && p.cmd != nil && p.cmd.Stderr != nil {
+		_, _ = fmt.Fprintf(p.cmd.Stderr, "codex-sdk-go: warning: %v\n", err)
+	}
 }
 
 func (p *Process) closeStdin() error {

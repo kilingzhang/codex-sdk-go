@@ -37,6 +37,7 @@ required. CI reads the Go version from `go.mod`.
 
 ## Documentation
 
+- [Minimal streaming chat backend](examples/minimal-chat/README.md): runnable two-turn smoke test and JSONL output
 - [Protocol guide](docs/protocol.md) — service methods, inputs, notifications, approvals, and login variants
 - [Configuration guide](docs/guides/configuration.md) — single and multiple workspace login restrictions and JSON composition
 - [Spec-sync maintenance](docs/spec-sync.md) — automated schema updates and superseded-PR handling

@@ -12,7 +12,7 @@ import (
 const processGroupPollInterval = 10 * time.Millisecond
 
 // Tree tracks process-tree state for a managed child process.
-type Tree struct{}
+type Tree struct{ descendants *descendantSet }
 
 // ConfigureCommand prepares cmd so child processes share a process group.
 func ConfigureCommand(cmd *exec.Cmd) {
@@ -27,7 +27,7 @@ func ConfigureCommand(cmd *exec.Cmd) {
 
 // AttachTree attaches process-tree state to a started command.
 func AttachTree(_ *exec.Cmd) (Tree, error) {
-	return Tree{}, nil
+	return Tree{descendants: &descendantSet{}}, nil
 }
 
 // RequestShutdown asks the process group to terminate gracefully.

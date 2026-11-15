@@ -20,12 +20,16 @@ fi
 required_golangci_lint_version="v2.14.0"
 
 path_flake() {
-  local LC_ALL=C value=$1 encoded= char hex n
+  local LC_ALL=C value=$1 encoded= char hex byte n
   for ((n=0; n<${#value}; n++)); do
     char=${value:n:1}
     case "$char" in
       [a-zA-Z0-9/._~-]) encoded+=$char ;;
-      *) printf -v hex '%%%02X' "'$char"; encoded+=$hex ;;
+      *)
+        printf -v byte '%d' "'$char"
+        printf -v hex '%%%02X' "$((byte & 255))"
+        encoded+=$hex
+        ;;
     esac
   done
   printf 'path:%s' "$encoded"

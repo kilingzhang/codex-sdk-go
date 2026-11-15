@@ -42,11 +42,17 @@ func main() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT)
 	defer signal.Stop(signals)
+	detached := os.Getenv("CODEX_TEST_DETACHED_CHILD") == "1"
 	child := exec.Command(executable, "heartbeat-child")
+	if detached {
+		child.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	}
 	if err := child.Start(); err != nil {
 		panic(err)
 	}
-	defer func() { _ = child.Process.Kill(); _ = child.Wait() }()
+	if !detached {
+		defer func() { _ = child.Process.Kill(); _ = child.Wait() }()
+	}
 	if err := publish(root, "pids", strconv.Itoa(os.Getpid())+" "+strconv.Itoa(child.Process.Pid)); err != nil {
 		panic(err)
 	}

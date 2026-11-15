@@ -112,6 +112,12 @@ func attachTreeWithAPI(cmd *exec.Cmd, api windowsTreeAPI) (Tree, error) {
 	return Tree{job: job, api: api}, nil
 }
 
+// PrepareShutdown is unnecessary because the job object already owns descendants.
+func (Tree) PrepareShutdown(_ *os.Process) error { return nil }
+
+// CheckDescendants is unnecessary because the job object owns descendants.
+func (Tree) CheckDescendants() error { return nil }
+
 // RequestShutdown asks the process tree to terminate gracefully.
 func (Tree) RequestShutdown(_ *os.Process) error {
 	return nil

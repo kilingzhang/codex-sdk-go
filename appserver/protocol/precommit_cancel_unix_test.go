@@ -42,7 +42,7 @@ if [ "$1" = -C ]; then cd -- "$2"; shift 2; fi
 case "$LINT_FIXTURE_PHASE:$1:${2:-}" in
   install:install:*|bootstrap:build:*|ordinary:test:./...|race:test:-race|tidy:mod:tidy)
     (read -r reply < "$LINT_FIXTURE_WAIT") &
-    printf '%s\n' "$BASHPID" > "$LINT_FIXTURE_READY"
+    printf '%s\n' "$$" > "$LINT_FIXTURE_READY"
     wait
     [[ "$1" != install ]] || exit 1 ;;
 esac
@@ -58,7 +58,7 @@ exec "$LINT_FIXTURE_REAL_GO" "$@"
 		if err != nil {
 			t.Fatal(err)
 		}
-		const fakeCat = "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' \"$BASHPID\" > \"$LINT_FIXTURE_READY\"\nexec \"$LINT_FIXTURE_REAL_CAT\"\n"
+		const fakeCat = "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' \"$$\" > \"$LINT_FIXTURE_READY\"\nexec \"$LINT_FIXTURE_REAL_CAT\"\n"
 		if err := os.WriteFile(filepath.Join(f.parent, "bin", "cat"), []byte(fakeCat), 0o700); err != nil {
 			t.Fatal(err)
 		}
